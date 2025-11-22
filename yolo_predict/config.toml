@@ -1,0 +1,63 @@
+db_path = "./predict.db"
+dump_path = "./dump"  #
+static_dir = "./static"
+notify_url = "http://localhost"  # 用于返回图片的url地址
+watch_interval = 30 # 每隔多少秒检测一次
+read_pic_limit = 100 # 一次从数据库读入的图像数据上限
+static_base_url = "http://localhost:8080/static"
+
+[div_predict]
+model = "./models/yolo11n_visdrone.pt"
+in_dir = "./dump"
+out_dir = "./static/"
+conf = 0.75
+iou = 0.7
+n = 2
+labels = ['pedestrian', 'people', 'bicycle', 'car', 'van', 'truck', 'tricycle', 'awning-tricycle', 'bus', 'motor']
+
+
+[[predict]]
+tag = "swimmer"  # 通知数据结构等的需要，与label配合筛选出指定的场景
+title = "游泳警告"  # 通知数据结构需要
+content = ""  # 通知数据结构需要
+model = "./models/swim_dron_yolo8_nano.pt"
+pipe = ""
+imgsz = 640
+labels = ["boat", "buoy", "jetski", "life_saving_appliances", "swimmer"]
+conf = 0.7
+iou = 0.7
+split = 2
+compose_in = "water"
+
+[[predict]]
+tag = "fire"
+title = "火灾警告"  # 通知数据结构需要
+content = ""  # 通知数据结构需要
+model = "./models/fire_yolo8_small.pt"
+pipe = ""
+imgsz = 640
+labels = ["fire"]
+conf = 0.7
+iou = 0.7
+split = 2
+
+[[predict]]
+tag = "water"
+title = "水体"
+content = ""
+model = "./model/yolov11n_water.pt"
+pipe = ""
+imgsz = 640
+labels = ["water"]
+conf = 0.9
+iou = 0.8
+split = 2
+
+# rtmp://play-sh.quklive.com/live/1761274636335259
+# project_uuid: 358f2d9b-a54e-41c9-a7c2-dd1228d97847
+# organization_uuid: 43d03d01-cf1c-4f2f-b2c8-033cda596489
+# cargo run -- -u rtmp://play-sh.quklive.com/live/1761274636335259 -p 358f2d9b-a54e-41c9-a7c2-dd1228d97847 -o 43d03d01-cf1c-4f2f-b2c8-033cda596489
+
+# predict 是在接收到启动指令之后运行的，相关参数可以在命令行里指定
+# 探测到了之后发送信息给服务接口
+# 需要手动关闭这个进程，对生成的Child使用kill
