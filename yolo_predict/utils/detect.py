@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+from typing import List
 
 import cv2
 import numpy as np
@@ -23,7 +24,7 @@ class Prediction:
     iou: float
     split: int
     yolo: YOLO
-    compose_in: str
+    pre_conditions: List[str]
 
 
 @dataclass
@@ -109,21 +110,49 @@ def __detect_split_image(
     return n_all_boxes[indices]  # pyright: ignore[reportAny]
 
 
+def __nms_next(n1: np.ndarray, n2: np.ndarray) -> np.ndarray:
+    # 返回所有n2中与n1有交集的元素
+    if not n1.size or not n2.size:
+        return np.array([])
+    n1_expanded = n1[np.newaxis, :, :]
+    n2_expanded = n1[:, np.newaxis, :]
+    intersects = (
+        (n1_expanded[..., 0] < n2_expanded[..., 2])  # A.x1 < B.x2
+        & (n1_expanded[..., 2] > n2_expanded[..., 0])  # A.x2 > B.x1
+        & (n1_expanded[..., 1] < n2_expanded[..., 3])  # A.y1 < B.y2
+        & (n1_expanded[..., 3] > n2_expanded[..., 1])  # A.y2 > B.y1
+    )
+    has_intersection_indices = intersects.any(axis=1)
+    return n2[has_intersection_indices]
+
+
 # todo
 # prediction应该是一个数组，互相之间是与操作
 # 也就是说第一个预测失败的话就直接可以停止了
 # 如果两个预测都是有数据，则两者的框做nms，这里的iou可以非常小，只要有交接即可
 # 最后一个预测的label作为整个组的标签
 def predict(
-    pdct: Prediction,
+    predictions: List[Prediction],
     out_path: str,
     im_path: str,
 ) -> bool:
     image: MatLike | None = cv2.imread(im_path)
     if image is None:
         return False
-    merged_boxes = __detect_split_image(pdct.yolo, image, pdct.conf, pdct.iou)
 
+    merged_boxes = np.array([])
+    for idx, p in enumerate(predictions):
+        _boxes = __detect_split_image(p.yolo, image, p.conf, p.iou)
+        if _boxes.shape[0] == 0:
+            return False
+        elif idx > 0:
+            merged_boxes = __nms_next(merged_boxes, _boxes)
+            if merged_boxes.shape[0] == 0:
+                return False
+        else:
+            merged_boxes = _boxes
+
+    pdct = predictions[-1]  # 最后一个预测对象为任务对象，前面的都是前置条件
     detected = False
     for box in merged_boxes:  # pyright: ignore[reportAny]
         # float, float, float, float, float, int

@@ -16,9 +16,9 @@ from yolo_predict.utils.detect import (
 )
 
 
-def __filter_model(code: str, cfg_predicts: list[Prediction]) -> Prediction | None:
+def __filter_model(code: str, cfg_preds: list[Prediction]) -> Prediction | None:
     # 列出实现的模型
-    for p in cfg_predicts:
+    for p in cfg_preds:
         if p.tag == code:
             return p
 
@@ -29,6 +29,22 @@ def __update_image_status(cur: sqlite3.Cursor, image_id: int) -> None:
 
 def __path_2_url(url_base: str, im_path: str) -> str:
     return f"{url_base}/{os.path.basename(im_path)}"
+
+
+def __get_pre_conditions(
+    pred: Prediction | None, cfg_preds: list[Prediction]
+) -> list[Prediction]:
+    pre_conditions: list[Prediction] = []
+    if pred and pred.pre_conditions and len(pred.pre_conditions):
+        pre_conditions = [
+            p
+            for p in [
+                __filter_model(pre_condition, cfg_preds)
+                for pre_condition in pred.pre_conditions
+            ]
+            if p
+        ]
+    return pre_conditions
 
 
 def loop_predict(
@@ -49,8 +65,27 @@ def loop_predict(
                 __update_image_status(cur, predicted_image_id)
                 predicted_image_id = im.id
             prediction = __filter_model(im.code, cfg["predicts"])
+            pre_conditions = __get_pre_conditions(prediction, cfg["predicts"])
+
+            # 预设检测
+            pre_conditions: list[Prediction] = []
+            if (
+                prediction
+                and prediction.pre_conditions
+                and len(prediction.pre_conditions)
+            ):
+                pre_conditions = [
+                    p
+                    for p in [
+                        __filter_model(pre_condition, cfg["predicts"])
+                        for pre_condition in prediction.pre_conditions
+                    ]
+                    if p
+                ]
+
+            # 需要将pre_conditions加入进来
             if prediction and predict(
-                prediction,
+                pre_conditions + [prediction],  # 通常都是 [] + [prediction]
                 cfg["static_path"],
                 im.path,
             ):
@@ -66,7 +101,7 @@ def loop_predict(
                         [],
                     )
                 )
-            # todo: 复合检测的情况
+
         if im:
             # 这里很有可能把在批处理间隔开的额同一张图片给提前udpate了
             # 所以在db模块里对数据做了一些冗余的处理步骤
