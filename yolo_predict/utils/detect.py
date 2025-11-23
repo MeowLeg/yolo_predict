@@ -1,6 +1,5 @@
 import os
 from dataclasses import dataclass
-from typing import List
 
 import cv2
 import numpy as np
@@ -24,7 +23,7 @@ class Prediction:
     iou: float
     split: int
     yolo: YOLO
-    pre_conditions: List[str]
+    pre_conditions: list[str]
 
 
 @dataclass
@@ -110,7 +109,7 @@ def __detect_split_image(
     return n_all_boxes[indices]  # pyright: ignore[reportAny]
 
 
-def __nms_next(n1: np.ndarray, n2: np.ndarray) -> np.ndarray:
+def __nms_next(n1: np.ndarray, n2: np.ndarray) -> np.ndarray:  # pyright: ignore[reportMissingTypeArgument]
     # 返回所有n2中与n1有交集的元素
     if not n1.size or not n2.size:
         return np.array([])
@@ -126,13 +125,12 @@ def __nms_next(n1: np.ndarray, n2: np.ndarray) -> np.ndarray:
     return n2[has_intersection_indices]
 
 
-# todo
 # prediction应该是一个数组，互相之间是与操作
 # 也就是说第一个预测失败的话就直接可以停止了
 # 如果两个预测都是有数据，则两者的框做nms，这里的iou可以非常小，只要有交接即可
 # 最后一个预测的label作为整个组的标签
 def predict(
-    predictions: List[Prediction],
+    predictions: list[Prediction],
     out_path: str,
     im_path: str,
 ) -> bool:
